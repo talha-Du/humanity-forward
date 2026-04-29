@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community Resource Mapper</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Community Resource Mapper</h1>
+  </header>
+  <main>
+    <section id="controls">
+      <input type="text" id="search-input" placeholder="Search resources..." />
+      <div id="filter-group">
+        <label><input type="checkbox" class="filter-checkbox" value="water" checked> Water</label>
+        <label><input type="checkbox" class="filter-checkbox" value="food" checked> Food</label>
+        <label><input type="checkbox" class="filter-checkbox" value="health" checked> Health</label>
+        <label><input type="checkbox" class="filter-checkbox" value="education" checked> Education</label>
+      </div>
+      <div id="action-group">
+        <button id="export-btn">Export JSON</button>
+        <label class="btn-label">
+          <input type="file" id="import-input" accept=".json" hidden>
+          Import JSON
+        </label>
+      </div>
+    </section>
+    <section id="map"></section>
+  </main>
+
+  <!-- Add Marker Modal -->
+  <div id="modal" class="hidden">
+    <div id="modal-content">
+      <h2 id="modal-title">Add Resource</h2>
+      <form id="marker-form">
+        <label>
+          Name:
+          <input type="text" id="marker-name" required>
+        </label>
+        <label>
+          Type:
+          <select id="marker-type" required>
+            <option value="water">Water</option>
+            <option value="food">Food</option>
+            <option value="health">Health</option>
+            <option value="education">Education</option>
+          </select>
+        </label>
+        <label>
+          Description:
+          <textarea id="marker-desc" rows="3"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="submit" id="modal-save">Save</button>
+          <button type="button" id="modal-delete" class="hidden">Delete</button>
+          <button type="button" id="modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
