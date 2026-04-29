@@ -93,7 +93,19 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(markersData));
   }
 
-  function loadMarkers() {
+  async function loadMarkers() {
+    try {
+      // Versuche zuerst vom Backend zu laden
+      if (window.API && window.API.isOnline()) {
+        const resources = await window.API.getResources();
+        markersData = resources;
+        saveMarkers();
+        return;
+      }
+    } catch (e) {
+      console.warn('API load failed, using localStorage', e);
+    }
+    // Fallback zu localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) markersData = JSON.parse(raw);
@@ -170,7 +182,7 @@
     });
   }
 
-  function addMarker(data) {
+  async function addMarker(data) {
     const marker = {
       id: data.id || crypto.randomUUID(),
       lat: data.lat,
@@ -178,21 +190,58 @@
       name: data.name,
       type: data.type,
       desc: data.desc || '',
+      contact: data.contact || '',
     };
+    
+    if (window.API && window.API.isOnline()) {
+      try {
+        await window.API.addResource(marker);
+      } catch (e) {
+        console.warn('API add failed, queuing for sync', e);
+        window.API.queue({ type: 'add', data: marker });
+      }
+    } else {
+      // Offline: in Queue legen
+      if (window.API) window.API.queue({ type: 'add', data: marker });
+    }
+    
     markersData.push(marker);
     saveMarkers();
     renderMarkers();
   }
 
-  function updateMarker(id, data) {
+  async function updateMarker(id, data) {
     const idx = markersData.findIndex((m) => m.id === id);
     if (idx === -1) return;
+    
+    if (window.API && window.API.isOnline()) {
+      try {
+        await window.API.updateResource(id, data);
+      } catch (e) {
+        console.warn('API update failed, queuing for sync', e);
+        window.API.queue({ type: 'update', id, data });
+      }
+    } else {
+      if (window.API) window.API.queue({ type: 'update', id, data });
+    }
+    
     markersData[idx] = { ...markersData[idx], ...data };
     saveMarkers();
     renderMarkers();
   }
 
-  function deleteMarker(id) {
+  async function deleteMarker(id) {
+    if (window.API && window.API.isOnline()) {
+      try {
+        await window.API.deleteResource(id);
+      } catch (e) {
+        console.warn('API delete failed, queuing for sync', e);
+        window.API.queue({ type: 'delete', id });
+      }
+    } else {
+      if (window.API) window.API.queue({ type: 'delete', id });
+    }
+    
     markersData = markersData.filter((m) => m.id !== id);
     saveMarkers();
     renderMarkers();
@@ -302,11 +351,16 @@
     });
   }
 
-  function init() {
-    loadMarkers();
+  async function init() {
+    await loadMarkers();
     initMap();
     renderMarkers();
     bindEvents();
+    
+    // Sync wenn wir online kommen
+    if (window.API) {
+      await window.API.syncQueue();
+    }
   }
 
   if (document.readyState === 'loading') {
