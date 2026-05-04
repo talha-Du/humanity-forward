@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einstellungen - Humanity Forward</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="sw-register.js"></script>
+  <style>
+    .settings-page {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 2rem;
+      min-height: calc(100vh - 200px);
+    }
+    .settings-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+    .settings-section h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    .setting-label {
+      font-weight: 500;
+    }
+    .setting-desc {
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+      flex: 1;
+      margin-left: 1rem;
+    }
+    .input-group input[type="text"] {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .input-group input[type="file"] {
+      font-size: 0.85rem;
+    }
+    .danger-zone {
+      border-left: 3px solid #f44336;
+    }
+    .danger-zone h3 {
+      color: #c62828;
+    }
+    .btn.danger {
+      background: #f44336;
+      color: white;
+    }
+    .btn.danger:hover {
+      background: #d32f2f;
+    }
+    .version-box {
+      text-align: center;
+      padding: 1rem;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    .version-box .version-number {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .version-box .version-date {
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+    .file-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #import-file-name {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      font-style: italic;
+    }
+    .success-msg {
+      color: var(--primary);
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+    .error-msg {
+      color: #c62828;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+    @media (max-width: 600px) {
+      .settings-page { padding: 1rem; }
+      .setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .input-group {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="main-header">
+    <div class="logo">
+      <span class="logo-icon">🌍</span>
+      <div class="logo-text">
+        <h1>Humanity Forward</h1>
+        <span class="tagline">Einstellungen</span>
+      </div>
+    </div>
+    <a href="index.html" class="btn secondary">&#8592; Zur&uuml;ck zum Dashboard</a>
+  </header>
+
+  <main class="settings-page">
+    <!-- Version Info -->
+    <section class="settings-section">
+      <h3>&#128241; App-Version</h3>
+      <div class="version-box">
+        <div class="version-number">v1.0.0</div>
+        <div class="version-date">Erstellt am 29. April 2026</div>
+        <p style="margin-top:0.5rem; color:var(--text-light); font-size:0.9rem;">
+          Community Resource Mapper &#183; Offline-f&auml;hig &#183; PWA-ready
+        </p>
+      </div>
+    </section>
+
+    <!-- Data Management -->
+    <section class="settings-section">
+      <h3>&#128187; Datenverwaltung</h3>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Daten exportieren</div>
+          <div class="setting-desc">Exportiere alle Ressourcen als JSON-Datei</div>
+        </div>
+        <button id="export-btn" class="btn primary">
+          <span>&#128190;</span> Exportieren
+        </button>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Daten importieren</div>
+          <div class="setting-desc">Lade Ressourcen aus einer JSON-Datei</div>
+        </div>
+        <div class="file-input-wrapper">
+          <input type="file" id="import-input" accept=".json" hidden>
+          <button id="import-btn" class="btn secondary">
+            <span>&#128194;</span> Datei w&auml;hlen
+          </button>
+          <span id="import-file-name"></span>
+        </div>
+      </div>
+      <div id="import-status"></div>
+    </section>
+
+    <!-- API Settings -->
+    <section class="settings-section">
+      <h3>&#128268; API-Konfiguration</h3>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">API-Endpunkt</div>
+          <div class="setting-desc">URL des Community Resource Mapper Servers</div>
+        </div>
+        <div class="input-group">
+          <input type="text" id="api-endpoint" placeholder="z.B. http://localhost:3000/api">
+          <button id="save-api-btn" class="btn secondary">Speichern</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Aktueller Endpunkt</div>
+          <div class="setting-desc" id="current-endpoint">Wird ermittelt...</div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Verbindung testen</div>
+          <div class="setting-desc">API-Erreichbarkeit pr&uuml;fen</div>
+        </div>
+        <button id="test-api-btn" class="btn secondary">
+          <span>&#128260;</span> Testen
+        </button>
+      </div>
+      <div id="api-test-status"></div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="settings-section danger-zone">
+      <h3>&#9888; Gefahrenzone</h3>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Alle lokalen Daten l&ouml;schen</div>
+          <div class="setting-desc">L&ouml;scht alle Ressourcen und Einstellungen. Kann nicht r&uuml;ckg&auml;ngig gemacht werden!</div>
+        </div>
+        <button id="clear-data-btn" class="btn danger">
+          <span>&#128465;</span> L&ouml;schen
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Humanity Forward v1.0.0 | Erstellt mit &#10084; von Talha D.</p>
+  </footer>
+
+  <script>
+    const HF_VERSION = '1.0.0';
+
+    // Detect current API endpoint
+    function detectApiBase() {
+      const custom = localStorage.getItem('hf_api_endpoint');
+      if (custom) return custom;
+
+      const isTunnel = window.location.hostname.includes('loca.lt');
+      if (isTunnel) return `https://${window.location.hostname}/api`;
+      if (window.location.hostname === 'localhost') return 'http://localhost:3000/api';
+      return '/api';
+    }
+
+    function showStatus(id, message, isError = false) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = isError ? 'error-msg' : 'success-msg';
+      el.textContent = message;
+      setTimeout(() => { el.textContent = ''; }, 5000);
+    }
+
+    // Export data
+    document.getElementById('export-btn').addEventListener('click', () => {
+      try {
+        const raw = localStorage.getItem('crm_markers_v1') || '[]';
+        const data = JSON.parse(raw);
+        const exportObj = {
+          version: HF_VERSION,
+          exportedAt: new Date().toISOString(),
+          resources: data,
+          syncQueue: JSON.parse(localStorage.getItem('syncQueue') || '[]'),
+        };
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `humanity-forward-export-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showStatus('import-status', '✅ Export erfolgreich!');
+      } catch (e) {
+        showStatus('import-status', '❌ Export fehlgeschlagen: ' + e.message, true);
+      }
+    });
+
+    // Import data
+    const importInput = document.getElementById('import-input');
+    const importBtn = document.getElementById('import-btn');
+    const importFileName = document.getElementById('import-file-name');
+
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      importFileName.textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          let resources = [];
+
+          if (Array.isArray(data)) {
+            resources = data;
+          } else if (data.resources && Array.isArray(data.resources)) {
+            resources = data.resources;
+          } else {
+            throw new Error('Unbekanntes Dateiformat');
+          }
+
+          if (confirm(`${resources.length} Ressource(n) importieren? Vorhandene Daten werden nicht &uuml;berschrieben.`)) {
+            const existing = JSON.parse(localStorage.getItem('crm_markers_v1') || '[]');
+            const existingIds = new Set(existing.map(r => r.id));
+            let added = 0;
+
+            resources.forEach(r => {
+              if (r.lat != null && r.lng != null && r.name && r.type) {
+                if (!existingIds.has(r.id)) {
+                  existing.push({
+                    id: r.id || crypto.randomUUID(),
+                    lat: r.lat,
+                    lng: r.lng,
+                    name: r.name,
+                    type: r.type,
+                    desc: r.desc || '',
+                  });
+                  added++;
+                }
+              }
+            });
+
+            localStorage.setItem('crm_markers_v1', JSON.stringify(existing));
+            showStatus('import-status', `✅ ${added} Ressource(n) importiert!`);
+          }
+        } catch (err) {
+          showStatus('import-status', '❌ Import fehlgeschlagen: ' + err.message, true);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // API Endpoint
+    const apiInput = document.getElementById('api-endpoint');
+    const currentEndpoint = document.getElementById('current-endpoint');
+    const apiBase = detectApiBase();
+
+    currentEndpoint.textContent = apiBase;
+    apiInput.placeholder = apiBase;
+    if (localStorage.getItem('hf_api_endpoint')) {
+      apiInput.value = localStorage.getItem('hf_api_endpoint');
+    }
+
+    document.getElementById('save-api-btn').addEventListener('click', () => {
+      const url = apiInput.value.trim();
+      if (!url) {
+        localStorage.removeItem('hf_api_endpoint');
+        currentEndpoint.textContent = detectApiBase();
+        showStatus('api-test-status', '✅ Standard-Endpunkt wiederhergestellt');
+        return;
+      }
+      if (!url.startsWith('http')) {
+        showStatus('api-test-status', '❌ URL muss mit http:// oder https:// beginnen', true);
+        return;
+      }
+      localStorage.setItem('hf_api_endpoint', url);
+      currentEndpoint.textContent = url;
+      showStatus('api-test-status', '✅ API-Endpunkt gespeichert');
+    });
+
+    document.getElementById('test-api-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('test-api-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Teste...';
+
+      try {
+        const base = detectApiBase();
+        const response = await fetch(`${base}/resources`, { method: 'GET' });
+        if (response.ok) {
+          const data = await response.json();
+          showStatus('api-test-status', `✅ Verbindung OK! ${Array.isArray(data) ? data.length : '?'} Ressourcen gefunden.`);
+        } else {
+          showStatus('api-test-status', `⚠️ Server antwortet mit Status ${response.status}`, true);
+        }
+      } catch (e) {
+        showStatus('api-test-status', '❌ Verbindung fehlgeschlagen: ' + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔄</span> Testen';
+      }
+    });
+
+    // Clear all data
+    document.getElementById('clear-data-btn').addEventListener('click', () => {
+      if (confirm('⚠️ BIST DU SICHER?\n\nAlle lokalen Daten werden unwiderruflich gel\u00f6scht!\n\nDies umfasst:\n- Alle Ressourcen\n- Sync-Queue\n- API-Einstellungen')) {
+        localStorage.removeItem('crm_markers_v1');
+        localStorage.removeItem('syncQueue');
+        localStorage.removeItem('hf_api_endpoint');
+        alert('✅ Alle lokalen Daten wurden gel\u00f6scht. Seite wird neu geladen.');
+        window.location.reload();
+      }
+    });
+  </script>
+</body>
+</html>
