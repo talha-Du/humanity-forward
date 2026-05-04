@@ -3,6 +3,7 @@
 
   // ─── Config ───
   const STORAGE_KEY = 'crm_markers_v1';
+  const QUEUE_KEY = 'syncQueue';
   const TILE_DB_NAME = 'crm_tiles';
   const TILE_STORE = 'tiles';
   const MAP_CENTER = [52.52, 13.405];   // Berlin default
@@ -20,6 +21,7 @@
   let markersData = [];
   let editingId = null;
   let tempLatLng = null;
+  let isSyncing = false;
 
   // ─── IndexedDB tile cache ───
   function openTileDB() {
@@ -94,18 +96,22 @@
   }
 
   async function loadMarkers() {
+    // 1. Versuche zuerst vom Backend zu laden
     try {
-      // Versuche zuerst vom Backend zu laden
       if (window.API && window.API.isOnline()) {
+        updateSyncStatus('syncing', 'Lade von Server...');
         const resources = await window.API.getResources();
         markersData = resources;
         saveMarkers();
+        updateSyncStatus('online', 'Synchronisiert');
         return;
       }
     } catch (e) {
       console.warn('API load failed, using localStorage', e);
+      updateSyncStatus('offline', 'Offline (lokal)');
     }
-    // Fallback zu localStorage
+    
+    // 2. Fallback zu localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) markersData = JSON.parse(raw);
@@ -127,6 +133,24 @@
     $('#marker-form').reset();
     editingId = null;
     tempLatLng = null;
+  }
+
+  function updateSyncStatus(status, text) {
+    const el = document.getElementById('sync-status');
+    if (el) {
+      el.className = 'sync-indicator ' + status;
+      const textEl = el.querySelector('.sync-text');
+      if (textEl) textEl.textContent = text;
+    }
+  }
+
+  function updateQueueCount() {
+    const el = document.getElementById('queue-count');
+    if (el && window.API) {
+      const count = window.API.getQueueLength();
+      el.textContent = count > 0 ? `(${count})` : '';
+      el.style.display = count > 0 ? 'inline' : 'none';
+    }
   }
 
   // ─── Marker management ───
@@ -195,56 +219,86 @@
     
     if (window.API && window.API.isOnline()) {
       try {
-        await window.API.addResource(marker);
+        updateSyncStatus('syncing', 'Speichere...');
+        const saved = await window.API.addResource(marker);
+        // Verwende die vom Server zugewiesene ID
+        marker.id = saved.id;
+        updateSyncStatus('online', 'Synchronisiert');
       } catch (e) {
         console.warn('API add failed, queuing for sync', e);
         window.API.queue({ type: 'add', data: marker });
+        updateSyncStatus('pending', 'Wird synchronisiert');
       }
     } else {
       // Offline: in Queue legen
-      if (window.API) window.API.queue({ type: 'add', data: marker });
+      if (window.API) {
+        window.API.queue({ type: 'add', data: marker });
+        updateSyncStatus('offline', 'Offline (lokal)');
+      }
     }
     
     markersData.push(marker);
     saveMarkers();
     renderMarkers();
+    updateQueueCount();
   }
 
   async function updateMarker(id, data) {
     const idx = markersData.findIndex((m) => m.id === id);
     if (idx === -1) return;
     
+    const updates = { ...data };
+    
     if (window.API && window.API.isOnline()) {
       try {
-        await window.API.updateResource(id, data);
+        updateSyncStatus('syncing', 'Aktualisiere...');
+        await window.API.updateResource(id, updates);
+        updateSyncStatus('online', 'Synchronisiert');
       } catch (e) {
         console.warn('API update failed, queuing for sync', e);
-        window.API.queue({ type: 'update', id, data });
+        window.API.queue({ type: 'update', id, data: updates });
+        updateSyncStatus('pending', 'Wird synchronisiert');
       }
     } else {
-      if (window.API) window.API.queue({ type: 'update', id, data });
+      if (window.API) {
+        window.API.queue({ type: 'update', id, data: updates });
+        updateSyncStatus('offline', 'Offline (lokal)');
+      }
     }
     
-    markersData[idx] = { ...markersData[idx], ...data };
+    markersData[idx] = { ...markersData[idx], ...updates };
     saveMarkers();
     renderMarkers();
+    updateQueueCount();
   }
 
   async function deleteMarker(id) {
     if (window.API && window.API.isOnline()) {
       try {
+        updateSyncStatus('syncing', 'Lösche...');
         await window.API.deleteResource(id);
+        updateSyncStatus('online', 'Synchronisiert');
       } catch (e) {
-        console.warn('API delete failed, queuing for sync', e);
-        window.API.queue({ type: 'delete', id });
+        // Bei NOT_FOUND ist es bereits gelöscht → nicht in Queue
+        if (e.message === 'NOT_FOUND') {
+          console.log('Resource already deleted on server');
+        } else {
+          console.warn('API delete failed, queuing for sync', e);
+          window.API.queue({ type: 'delete', id });
+          updateSyncStatus('pending', 'Wird synchronisiert');
+        }
       }
     } else {
-      if (window.API) window.API.queue({ type: 'delete', id });
+      if (window.API) {
+        window.API.queue({ type: 'delete', id });
+        updateSyncStatus('offline', 'Offline (lokal)');
+      }
     }
     
     markersData = markersData.filter((m) => m.id !== id);
     saveMarkers();
     renderMarkers();
+    updateQueueCount();
   }
 
   // ─── Export / Import ───
@@ -258,30 +312,44 @@
     URL.revokeObjectURL(url);
   }
 
-  function importJSON(file) {
+  async function importJSON(file) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target.result);
         if (!Array.isArray(data)) throw new Error('Expected array');
         if (confirm(`Import ${data.length} markers? Existing markers will be kept.`)) {
-          data.forEach((m) => {
+          let imported = 0;
+          for (const m of data) {
             if (m.lat != null && m.lng != null && m.name && m.type) {
               // Avoid duplicates by id
               if (!markersData.find((x) => x.id === m.id)) {
-                markersData.push({
+                const marker = {
                   id: m.id || crypto.randomUUID(),
                   lat: m.lat,
                   lng: m.lng,
                   name: m.name,
                   type: m.type,
                   desc: m.desc || '',
-                });
+                };
+                markersData.push(marker);
+                imported++;
+                
+                // Versuche direkt an API zu senden
+                if (window.API && window.API.isOnline()) {
+                  try {
+                    await window.API.addResource(marker);
+                  } catch (e) {
+                    window.API.queue({ type: 'add', data: marker });
+                  }
+                }
               }
             }
-          });
+          }
           saveMarkers();
           renderMarkers();
+          updateQueueCount();
+          alert(`${imported} Ressourcen importiert.`);
         }
       } catch (err) {
         alert('Invalid JSON file: ' + err.message);
@@ -294,7 +362,7 @@
   function bindEvents() {
     $('#modal-cancel').addEventListener('click', closeModal);
 
-    $('#marker-form').addEventListener('submit', (e) => {
+    $('#marker-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = $('#marker-name').value.trim();
       const type = $('#marker-type').value;
@@ -302,16 +370,16 @@
       if (!name) return;
 
       if (editingId) {
-        updateMarker(editingId, { name, type, desc });
+        await updateMarker(editingId, { name, type, desc });
       } else if (tempLatLng) {
-        addMarker({ lat: tempLatLng.lat, lng: tempLatLng.lng, name, type, desc });
+        await addMarker({ lat: tempLatLng.lat, lng: tempLatLng.lng, name, type, desc });
       }
       closeModal();
     });
 
-    $('#modal-delete').addEventListener('click', () => {
+    $('#modal-delete').addEventListener('click', async () => {
       if (editingId && confirm('Delete this resource?')) {
-        deleteMarker(editingId);
+        await deleteMarker(editingId);
         closeModal();
       }
     });
@@ -328,6 +396,39 @@
 
     $$('.filter-checkbox').forEach((cb) => {
       cb.addEventListener('change', renderMarkers);
+    });
+    
+    // Manuelle Sync
+    const syncBtn = document.getElementById('sync-now-btn');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', async () => {
+        if (window.API && !isSyncing) {
+          isSyncing = true;
+          syncBtn.disabled = true;
+          syncBtn.textContent = '⏳ Synchronisiere...';
+          try {
+            await window.API.syncQueue();
+            await loadMarkers();
+            renderMarkers();
+          } catch (e) {
+            console.error('Manual sync failed:', e);
+          } finally {
+            isSyncing = false;
+            syncBtn.disabled = false;
+            syncBtn.textContent = '🔄 Jetzt synchronisieren';
+          }
+        }
+      });
+    }
+    
+    // API Sync Event
+    window.addEventListener('api:synced', (e) => {
+      updateQueueCount();
+      if (e.detail.resources) {
+        markersData = e.detail.resources;
+        saveMarkers();
+        renderMarkers();
+      }
     });
   }
 
@@ -356,6 +457,7 @@
     initMap();
     renderMarkers();
     bindEvents();
+    updateQueueCount();
     
     // Sync wenn wir online kommen
     if (window.API) {

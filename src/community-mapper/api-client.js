@@ -1,44 +1,116 @@
 // API Client für Community Resource Mapper
-const API_BASE = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3000/api' 
-  : '/api';
+// Erkenne ob wir über Tunnel laufen (loca.lt Domain)
+const isTunnel = window.location.hostname.includes('loca.lt');
+const API_BASE = isTunnel 
+  ? 'https://cruel-clowns-drive.loca.lt/api'
+  : (window.location.hostname === 'localhost' 
+    ? 'http://localhost:3000/api' 
+    : '/api');
 
-let isOnline = navigator.onLine;
+let _isOnline = navigator.onLine;
 let syncQueue = [];
+let syncInProgress = false;
 
 // Online/Offline Events
-window.addEventListener('online', () => { isOnline = true; syncQueueOperations(); });
-window.addEventListener('offline', () => { isOnline = false; });
+window.addEventListener('online', () => { 
+  _isOnline = true; 
+  updateSyncStatus('online', 'Online');
+  syncQueueOperations(); 
+});
+window.addEventListener('offline', () => { 
+  _isOnline = false; 
+  updateSyncStatus('offline', 'Offline');
+});
 
-// API Helper
-async function apiRequest(method, endpoint, data = null) {
+function updateSyncStatus(status, text) {
+  const el = document.getElementById('sync-status');
+  if (el) {
+    el.className = 'sync-indicator ' + status;
+    el.querySelector('.sync-text').textContent = text;
+  }
+}
+
+// API Helper mit Retry-Logik
+async function apiRequest(method, endpoint, data = null, retries = 2) {
   const options = {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
   if (data) options.body = JSON.stringify(data);
   
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, options);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.warn(`API Error: ${error.message}`);
-    throw error;
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, options);
+      
+      if (response.status === 404) {
+        throw new Error('NOT_FOUND');
+      }
+      if (response.status === 500) {
+        throw new Error('SERVER_ERROR');
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      // DELETE returns 204 No Content
+      if (response.status === 204) return null;
+      
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      if (error.message === 'NOT_FOUND' || error.message === 'SERVER_ERROR') {
+        throw error; // Don't retry these
+      }
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
   }
+  throw lastError;
+}
+
+// Backend-Daten → Frontend-Daten Mapping
+function mapBackendToFrontend(resource) {
+  return {
+    id: String(resource.id),
+    name: resource.name,
+    type: resource.type,
+    lat: resource.lat,
+    lng: resource.lng,
+    desc: resource.description || '',
+    contact: resource.contact || '',
+    lastUpdated: resource.lastUpdated
+  };
+}
+
+function mapFrontendToBackend(marker) {
+  return {
+    name: marker.name,
+    type: marker.type,
+    lat: marker.lat,
+    lng: marker.lng,
+    description: marker.desc || '',
+    contact: marker.contact || ''
+  };
 }
 
 // CRUD Operations
 async function apiGetResources() {
-  return apiRequest('GET', '/resources');
+  const resources = await apiRequest('GET', '/resources');
+  return Array.isArray(resources) ? resources.map(mapBackendToFrontend) : [];
 }
 
-async function apiAddResource(resource) {
-  return apiRequest('POST', '/resources', resource);
+async function apiAddResource(marker) {
+  const data = mapFrontendToBackend(marker);
+  const result = await apiRequest('POST', '/resources', data);
+  return mapBackendToFrontend(result);
 }
 
-async function apiUpdateResource(id, resource) {
-  return apiRequest('PUT', `/resources/${id}`, resource);
+async function apiUpdateResource(id, updates) {
+  const data = mapFrontendToBackend(updates);
+  const result = await apiRequest('PUT', `/resources/${id}`, data);
+  return result;
 }
 
 async function apiDeleteResource(id) {
@@ -52,14 +124,20 @@ function queueOperation(operation) {
     timestamp: Date.now()
   });
   localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+  updateSyncStatus('pending', `${syncQueue.length} ausstehend`);
 }
 
 async function syncQueueOperations() {
-  if (!isOnline || syncQueue.length === 0) return;
+  if (!_isOnline || syncQueue.length === 0 || syncInProgress) return;
   
-  console.log(`Syncing ${syncQueue.length} operations...`);
+  syncInProgress = true;
+  updateSyncStatus('syncing', 'Synchronisiere...');
   
-  for (const op of [...syncQueue]) {
+  const queue = [...syncQueue];
+  let synced = 0;
+  let failed = 0;
+  
+  for (const op of queue) {
     try {
       switch (op.type) {
         case 'add':
@@ -73,20 +151,38 @@ async function syncQueueOperations() {
           break;
       }
       syncQueue = syncQueue.filter(q => q.timestamp !== op.timestamp);
-      localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+      synced++;
     } catch (error) {
       console.error('Sync failed for operation:', op, error);
-      break;
+      failed++;
+      // Bei NOT_FOUND oder SERVER_ERROR: Operation überspringen
+      if (error.message === 'NOT_FOUND' || error.message === 'SERVER_ERROR') {
+        syncQueue = syncQueue.filter(q => q.timestamp !== op.timestamp);
+      }
     }
   }
   
-  // Lade neu von API
+  localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+  
+  if (failed > 0) {
+    updateSyncStatus('pending', `${syncQueue.length} ausstehend`);
+  } else if (syncQueue.length > 0) {
+    updateSyncStatus('pending', `${syncQueue.length} ausstehend`);
+  } else {
+    updateSyncStatus('online', 'Synchronisiert');
+  }
+  
+  syncInProgress = false;
+  
+  // Lade neu von API nach Sync
   try {
     const resources = await apiGetResources();
     localStorage.setItem('crm_markers_v1', JSON.stringify(resources));
+    window.dispatchEvent(new CustomEvent('api:synced', { detail: { synced, failed, resources } }));
     return resources;
   } catch (e) {
     console.warn('Could not refresh from API after sync');
+    window.dispatchEvent(new CustomEvent('api:synced', { detail: { synced, failed } }));
   }
 }
 
@@ -101,7 +197,9 @@ window.API = {
   addResource: apiAddResource,
   updateResource: apiUpdateResource,
   deleteResource: apiDeleteResource,
-  isOnline: () => isOnline,
+  isOnline: () => _isOnline,
   syncQueue: syncQueueOperations,
-  queue: queueOperation
+  queue: queueOperation,
+  getQueueLength: () => syncQueue.length,
+  updateSyncStatus
 };

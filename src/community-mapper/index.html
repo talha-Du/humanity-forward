@@ -1,71 +1,176 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Community Resource Mapper</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="description" content="Humanity Forward - IT tools for humanitarian aid">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Humanity Forward">
+  <title>Humanity Forward - Dashboard</title>
+  <!-- PWA Icons -->
+  <link rel="icon" type="image/png" sizes="72x72" href="icons/icon-72x72.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96x96.png">
+  <link rel="icon" type="image/png" sizes="128x128" href="icons/icon-128x128.png">
+  <link rel="icon" type="image/png" sizes="144x144" href="icons/icon-144x144.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="mask-icon" href="icons/icon-192x192.png" color="#1a73e8">
+  <link rel="stylesheet" href="dashboard.css">
   <link rel="manifest" href="manifest.json">
-  <script src="sw-register.js"></script>
+  <script src="sw-register.js" defer></script>
 </head>
 <body>
-  <header>
-    <h1>Community Resource Mapper</h1>
-  </header>
-  <main>
-    <section id="controls">
-      <input type="text" id="search-input" placeholder="Search resources..." />
-      <div id="filter-group">
-        <label><input type="checkbox" class="filter-checkbox" value="water" checked> Water</label>
-        <label><input type="checkbox" class="filter-checkbox" value="food" checked> Food</label>
-        <label><input type="checkbox" class="filter-checkbox" value="health" checked> Health</label>
-        <label><input type="checkbox" class="filter-checkbox" value="education" checked> Education</label>
+  <header class="main-header">
+    <div class="logo">
+      <span class="logo-icon">🌍</span>
+      <div class="logo-text">
+        <h1>Humanity Forward</h1>
+        <span class="tagline">Community Tools</span>
       </div>
-      <div id="action-group">
-        <button id="export-btn">Export JSON</button>
-        <label class="btn-label">
-          <input type="file" id="import-input" accept=".json" hidden>
-          Import JSON
-        </label>
+    </div>
+    <div class="status-bar">
+      <span class="status-indicator" id="connection-status">
+        <span class="status-dot offline" id="status-dot"></span>
+        <span id="status-text">Offline</span>
+      </span>
+      <span class="version">v1.0.0</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <section class="welcome">
+      <h2>Willkommen zurück, Talha!</h2>
+      <p>Deine Humanit&auml;ren Werkzeuge im &Uuml;berblick.</p>
+    </section>
+
+    <section class="stats-section">
+      <h3>📊 Ressourcen-Statistiken</h3>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card total">
+          <span class="stat-number" id="total-count">-</span>
+          <span class="stat-label">Gesamt</span>
+        </div>
+        <div class="stat-card water">
+          <span class="stat-icon">&#128167;</span>
+          <span class="stat-number" id="water-count">-</span>
+          <span class="stat-label">Wasser</span>
+        </div>
+        <div class="stat-card food">
+          <span class="stat-icon">&#127838;</span>
+          <span class="stat-number" id="food-count">-</span>
+          <span class="stat-label">Essen</span>
+        </div>
+        <div class="stat-card health">
+          <span class="stat-icon">&#127973;</span>
+          <span class="stat-number" id="health-count">-</span>
+          <span class="stat-label">Gesundheit</span>
+        </div>
+        <div class="stat-card education">
+          <span class="stat-icon">&#128218;</span>
+          <span class="stat-number" id="education-count">-</span>
+          <span class="stat-label">Bildung</span>
+        </div>
       </div>
     </section>
-    <section id="map"></section>
+
+    <section class="modules-section">
+      <h3>&#128736; Module</h3>
+      <div class="modules-grid">
+        <a href="mapper.html" class="module-card active">
+          <div class="card-header">
+            <span class="card-icon">&#128506;</span>
+            <span class="badge active">AKTIV</span>
+          </div>
+          <h4>Community Resource Mapper</h4>
+          <p>Kartiere lokale Ressourcen: Wasser, Essen, Gesundheit, Bildung.</p>
+          <div class="card-footer">
+            <span class="resource-count" id="mapper-resource-count">- Ressourcen</span>
+            <span class="arrow">&#8594;</span>
+          </div>
+        </a>
+
+        <div class="module-card coming-soon">
+          <div class="card-header">
+            <span class="card-icon">&#128218;</span>
+            <span class="badge soon">DEMN&Auml;CHST</span>
+          </div>
+          <h4>Offline Learning Platform</h4>
+          <p>Lernmaterialien ohne Internetverbindung.</p>
+          <div class="card-footer">
+            <span class="soon-text">In Entwicklung</span>
+          </div>
+        </div>
+
+        <div class="module-card coming-soon">
+          <div class="card-header">
+            <span class="card-icon">&#128138;</span>
+            <span class="badge soon">DEMN&Auml;CHST</span>
+          </div>
+          <h4>Telemedicine Hub</h4>
+          <p>Videokonsultationen f&uuml;r abgelegene Gebiete.</p>
+          <div class="card-footer">
+            <span class="soon-text">In Entwicklung</span>
+          </div>
+        </div>
+
+        <div class="module-card coming-soon">
+          <div class="card-header">
+            <span class="card-icon">&#128167;</span>
+            <span class="badge soon">DEMN&Auml;CHST</span>
+          </div>
+          <h4>Water Quality Monitor</h4>
+          <p>&Uuml;berwachung von Wasserquellen in Echtzeit.</p>
+          <div class="card-footer">
+            <span class="soon-text">In Entwicklung</span>
+          </div>
+        </div>
+
+        <div class="module-card coming-soon">
+          <div class="card-header">
+            <span class="card-icon">&#9889;</span>
+            <span class="badge soon">DEMN&Auml;CHST</span>
+          </div>
+          <h4>Solar Energy Calculator</h4>
+          <p>Planung von Solaranlagen f&uuml;r Gemeinden.</p>
+          <div class="card-footer">
+            <span class="soon-text">In Entwicklung</span>
+          </div>
+        </div>
+
+        <a href="settings.html" class="module-card settings">
+          <div class="card-header">
+            <span class="card-icon">&#9881;</span>
+            <span class="badge settings">EINSTELLUNGEN</span>
+          </div>
+          <h4>Einstellungen</h4>
+          <p>Datenexport, API-Konfiguration, App-Info.</p>
+          <div class="card-footer">
+            <span class="arrow">&#8594;</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="quick-actions">
+      <h3>&#9889; Schnellaktionen</h3>
+      <div class="actions">
+        <button id="export-all-btn" class="btn primary">
+          <span>&#128190;</span> Alle Daten exportieren
+        </button>
+        <button id="sync-now-btn" class="btn secondary">
+          <span>&#128260;</span> Jetzt synchronisieren
+        </button>
+      </div>
+    </section>
   </main>
 
-  <!-- Add Marker Modal -->
-  <div id="modal" class="hidden">
-    <div id="modal-content">
-      <h2 id="modal-title">Add Resource</h2>
-      <form id="marker-form">
-        <label>
-          Name:
-          <input type="text" id="marker-name" required>
-        </label>
-        <label>
-          Type:
-          <select id="marker-type" required>
-            <option value="water">Water</option>
-            <option value="food">Food</option>
-            <option value="health">Health</option>
-            <option value="education">Education</option>
-          </select>
-        </label>
-        <label>
-          Description:
-          <textarea id="marker-desc" rows="3"></textarea>
-        </label>
-        <div class="modal-actions">
-          <button type="submit" id="modal-save">Save</button>
-          <button type="button" id="modal-delete" class="hidden">Delete</button>
-          <button type="button" id="modal-cancel">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <footer>
+    <p>Humanity Forward v1.0.0 | Erstellt mit &#10084; von Talha D.</p>
+  </footer>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="api-client.js"></script>
-  <script src="app.js"></script>
+  <script src="dashboard.js"></script>
 </body>
 </html>

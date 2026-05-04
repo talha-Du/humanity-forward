@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a73e8">
+  <meta name="description" content="Map and manage community resources for humanitarian aid">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Community Mapper">
+  <title>Community Resource Mapper</title>
+  <!-- PWA Icons -->
+  <link rel="icon" type="image/png" sizes="72x72" href="icons/icon-72x72.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96x96.png">
+  <link rel="icon" type="image/png" sizes="128x128" href="icons/icon-128x128.png">
+  <link rel="icon" type="image/png" sizes="144x144" href="icons/icon-144x144.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="mask-icon" href="icons/icon-192x192.png" color="#1a73e8">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="sw-register.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>🗺️ Community Resource Mapper</h1>
+    <div class="header-actions">
+      <span id="sync-status" class="sync-indicator offline">
+        <span class="sync-dot"></span>
+        <span class="sync-text">Offline</span>
+        <span id="queue-count" style="display:none;"></span>
+      </span>
+      <button id="sync-now-btn" class="sync-btn" title="Jetzt synchronisieren">🔄</button>
+    </div>
+  </header>
+  <main>
+    <section id="controls">
+      <input type="text" id="search-input" placeholder="Ressourcen suchen..." />
+      <div id="filter-group">
+        <label><input type="checkbox" class="filter-checkbox" value="water" checked> 💧 Wasser</label>
+        <label><input type="checkbox" class="filter-checkbox" value="food" checked> 🍞 Essen</label>
+        <label><input type="checkbox" class="filter-checkbox" value="health" checked> 🏥 Gesundheit</label>
+        <label><input type="checkbox" class="filter-checkbox" value="education" checked> 📚 Bildung</label>
+      </div>
+      <div id="action-group">
+        <button id="export-btn">📤 Export JSON</button>
+        <label class="btn-label">
+          <input type="file" id="import-input" accept=".json" hidden>
+          📥 Import JSON
+        </label>
+      </div>
+    </section>
+    <section id="map"></section>
+  </main>
+
+  <!-- Add Marker Modal -->
+  <div id="modal" class="hidden">
+    <div id="modal-content">
+      <h2 id="modal-title">Ressource hinzufügen</h2>
+      <form id="marker-form">
+        <label>
+          Name:
+          <input type="text" id="marker-name" required placeholder="z.B. Wasserpumpe Hauptstraße">
+        </label>
+        <label>
+          Typ:
+          <select id="marker-type" required>
+            <option value="water">💧 Wasser</option>
+            <option value="food">🍞 Essen</option>
+            <option value="health">🏥 Gesundheit</option>
+            <option value="education">📚 Bildung</option>
+          </select>
+        </label>
+        <label>
+          Beschreibung:
+          <textarea id="marker-desc" rows="3" placeholder="Details zur Ressource..."></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="submit" id="modal-save">💾 Speichern</button>
+          <button type="button" id="modal-delete" class="hidden">🗑️ Löschen</button>
+          <button type="button" id="modal-cancel">❌ Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="api-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

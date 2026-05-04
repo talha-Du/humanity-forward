@@ -16,14 +16,111 @@ header {
   background: #1e3a5f;
   color: #fff;
   padding: 0.75rem 1rem;
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  gap: 1rem;
 }
 
 header h1 {
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Sync Status Indicator */
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sync-indicator.online {
+  background: #d4edda;
+  color: #155724;
+}
+
+.sync-indicator.offline {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.sync-indicator.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.sync-indicator.syncing {
+  background: #cce5ff;
+  color: #004085;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sync-indicator.online .sync-dot {
+  background: #28a745;
+}
+
+.sync-indicator.offline .sync-dot {
+  background: #dc3545;
+}
+
+.sync-indicator.pending .sync-dot {
+  background: #ffc107;
+  animation: blink 1.5s infinite;
+}
+
+.sync-indicator.syncing .sync-dot {
+  background: #007bff;
+  animation: blink 0.8s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.sync-btn {
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sync-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 main {
@@ -91,6 +188,7 @@ main {
   color: #fff;
   display: inline-flex;
   align-items: center;
+  gap: 0.3rem;
 }
 
 #action-group button:hover,
